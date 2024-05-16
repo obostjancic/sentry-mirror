@@ -75,6 +75,8 @@ impl Dsn {
     }
 }
 
+/// Convert a list of Config data keys into Dsn's that we can use
+/// when handling requests.
 pub fn make_key_map(keys: Vec<Key>) -> HashMap<String, Vec<Dsn>> {
     let mut keymap: HashMap<String, Vec<Dsn>> = HashMap::new();
     for item in keys {

@@ -26,7 +26,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             panic!("Could not parse configuration file");
         },
     };
-    println!("{:?}", configdata);
+    // Create keymap that we need to match incoming requests
+    let keymap = dsn::make_key_map(configdata.keys);
+    println!("{:?}", keymap);
 
     // Bind to a port
     let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
