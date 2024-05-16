@@ -1,5 +1,9 @@
+use std::collections::HashMap;
+
 //use std::collections::HashMap;
 use url::Url;
+
+use crate::config::Key;
 
 /// DSN components parsed from a DSN string
 #[derive(Debug, Clone, PartialEq)]
@@ -61,21 +65,40 @@ impl Dsn {
             path,
         })
     }
+
+    /// Get a string of the key's identity.
+    pub fn key_id(&self) -> String {
+        let pubkey = &self.public_key;
+        let projectid = &self.project_id;
+
+        return format!("{pubkey}:{projectid}");
+    }
 }
 
-/*
-pub struct DsnKeyPair {
-    pub inbound: Dsn,
-    pub outbound: Vec<Dsn>,
+pub fn make_key_map(keys: Vec<Key>) -> HashMap<String, Vec<Dsn>> {
+    let mut keymap: HashMap<String, Vec<Dsn>> = HashMap::new();
+    for item in keys {
+        let inbound_dsn = match Dsn::from_string(item.inbound.expect("Missing inbound key")) {
+            Ok(r) => r,
+            Err(e) => panic!("{:?}", e),
+        };
+        let outbound = item.outbound.iter()
+            .filter_map(|item| match item {
+                Some(i) => Some(i),
+                None => None,
+            })
+            .map(|outbound_str| {
+                return Dsn::from_string(outbound_str.to_owned()).expect("Invalid outbound DSN")
+            }).collect::<Vec<Dsn>>();
+        keymap.insert(inbound_dsn.key_id(), outbound);
+    }
+    keymap
 }
-
-pub fn make_key_map(keys: Vec<DsnKeyPair>) -> HashMap<String, DsnKeyPair> {
-}
-*/
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::config::Key;
 
     #[test]
     fn parse_from_string_valid() {
@@ -107,5 +130,22 @@ mod tests {
         let dsn_str = "";
         let dsn = Dsn::from_string(dsn_str.to_string());
         assert_eq!(true, dsn.is_err());
+    }
+
+    #[test]
+    fn make_key_map_valid() {
+        let keys = vec![
+            Key {
+                inbound: Some("https://abcdef@sentry.io/1234".to_string()),
+                outbound: vec![
+                    Some("https://ghijkl@sentry.io/567".to_string()),
+                    Some("https://mnopq@sentry.io/890".to_string())
+                ]
+            }
+        ];
+        let keymap = make_key_map(keys);
+        assert_eq!(keymap.len(), 1);
+        let value = keymap.get("abcdef:1234").expect("Should have a value");
+        assert_eq!(value.len(), 2);
     }
 }

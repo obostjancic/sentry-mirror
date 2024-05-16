@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::{fs, io};
 
 
+/// A set of inbound and outbound keys.
+/// Requests sent to an inbound DSN are mirrored to all outbound DSNs
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct Key {
     pub inbound: Option<String>,
