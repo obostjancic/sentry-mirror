@@ -11,3 +11,4 @@ hyper-util = { version = "0.1", features = ["full"] }
 serde = { version = "1.0.159", features = ["derive", "rc"] }
 serde_yaml = "0.9.17"
 url = "2.1.1"
+regex = "1.10.4"

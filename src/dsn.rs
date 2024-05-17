@@ -1,6 +1,8 @@
 use std::collections::HashMap;
+use std::str;
 
-//use std::collections::HashMap;
+use hyper::{HeaderMap, Uri};
+use regex::Regex;
 use url::Url;
 
 use crate::config::Key;
@@ -97,8 +99,47 @@ pub fn make_key_map(keys: Vec<Key>) -> HashMap<String, Vec<Dsn>> {
     keymap
 }
 
+const SENTRY_X_AUTH_HEADER: &str = "X-Sentry-Auth";
+const AUTHORIZATION_HEADER: &str = "Authorization";
+
+/// Find and extract a DSN from an incoming request.
+pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
+    let mut key_source = String::new();
+
+    // Check the request query if it has one
+    let query = match uri.query() {
+        Some(v) => v,
+        None => "",
+    };
+    if query.len() > 0 {
+        key_source = query.to_string();
+    }
+    // Check the X-Sentry-Auth header and Authorization Header
+    if key_source.len() == 0 {
+        for key in [SENTRY_X_AUTH_HEADER, AUTHORIZATION_HEADER] {
+            if let Some(header) = headers.get(key) {
+                key_source = String::from_utf8(header.as_bytes().to_vec()).unwrap();
+                break;
+            }
+        }
+    }
+
+    if key_source.len() > 0 {
+        let pattern = Regex::new(r"sentry_key=([a-f0-9]{32})").unwrap();
+        let capture = match pattern.captures(&key_source) {
+            Some(v) => v,
+            None => return None,
+        };
+
+        return Some(capture[1].to_string());
+    }
+    return None
+}
+
 #[cfg(test)]
 mod tests {
+    use hyper::header::HeaderValue;
+
     use super::*;
     use crate::config::Key;
 
@@ -149,5 +190,53 @@ mod tests {
         assert_eq!(keymap.len(), 1);
         let value = keymap.get("abcdef:1234").expect("Should have a value");
         assert_eq!(value.len(), 2);
+    }
+
+    #[test]
+    fn from_request_header_query_string() {
+        let needle = "f".repeat(32);
+        let uri = format!("https://ingest.sentry.io/api/123/envelope?sentry_key={needle}&other=value").parse::<Uri>().unwrap();
+        let headers = HeaderMap::new();
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_some(), true);
+        assert_eq!(res.unwrap(), needle);
+    }
+
+    #[test]
+    fn from_request_header_query_string_not_found() {
+        // Key is missing 2 chars
+        let needle = "f".repeat(30);
+        let uri = format!("https://ingest.sentry.io/api/123/envelope?sentry_key={needle}&other=value").parse::<Uri>().unwrap();
+        let headers = HeaderMap::new();
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_none(), true);
+    }
+
+    #[test]
+    fn from_request_header_sentry_auth() {
+        let needle = "af".repeat(16);
+        let uri = "https://ingest.sentry.io/api/123/envelope".parse::<Uri>().unwrap();
+        let mut headers = HeaderMap::new();
+        let header_val = format!("sentry_key={needle}");
+        headers.insert("X-Sentry-Auth", header_val.parse().unwrap());
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_some(), true);
+        assert_eq!(res.unwrap(), needle);
+    }
+
+    #[test]
+    fn from_request_header_authorization() {
+        let needle = "af".repeat(16);
+        let uri = "https://ingest.sentry.io/api/123/envelope".parse::<Uri>().unwrap();
+        let mut headers = HeaderMap::new();
+        let header_val = format!("sentry_key={needle}");
+        headers.insert("Authorization", header_val.parse().unwrap());
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_some(), true);
+        assert_eq!(res.unwrap(), needle);
     }
 }
