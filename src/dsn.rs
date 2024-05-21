@@ -138,8 +138,6 @@ pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use hyper::header::HeaderValue;
-
     use super::*;
     use crate::config::Key;
 
@@ -228,6 +226,17 @@ mod tests {
     }
 
     #[test]
+    fn from_request_header_sentry_auth_not_found() {
+        let uri = "https://ingest.sentry.io/api/123/envelope".parse::<Uri>().unwrap();
+        let mut headers = HeaderMap::new();
+        let header_val = "sentry_key=derpity-derp";
+        headers.insert("X-Sentry-Auth", header_val.parse().unwrap());
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_some(), false);
+    }
+
+    #[test]
     fn from_request_header_authorization() {
         let needle = "af".repeat(16);
         let uri = "https://ingest.sentry.io/api/123/envelope".parse::<Uri>().unwrap();
@@ -238,5 +247,16 @@ mod tests {
         let res = from_request(&uri, &headers);
         assert_eq!(res.is_some(), true);
         assert_eq!(res.unwrap(), needle);
+    }
+
+    #[test]
+    fn from_request_header_authorization_not_found() {
+        let uri = "https://ingest.sentry.io/api/123/envelope".parse::<Uri>().unwrap();
+        let mut headers = HeaderMap::new();
+        let header_val = "sentry_key=derpity-derp";
+        headers.insert("Authorization", header_val.parse().unwrap());
+
+        let res = from_request(&uri, &headers);
+        assert_eq!(res.is_some(), false);
     }
 }
