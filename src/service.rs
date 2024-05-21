@@ -29,8 +29,10 @@ impl Service<Request<Incoming>> for MirrorService {
         // Find DSN public key in request
         let found_dsn = dsn::from_request(req.uri(), req.headers());
         if found_dsn.is_none() {
-            let mut res = Response::new(Full::new(Bytes::from("No DSN found")));
-            *res.status_mut() = StatusCode::BAD_REQUEST;
+            let res = Response::builder()
+                .status(StatusCode::BAD_REQUEST)
+                .body(Full::new(Bytes::from("No DSN found")))
+                .unwrap();
             return Box::pin(async { Ok(res) })
         }
         // Match the public key with registered keys
