@@ -54,7 +54,6 @@ impl Dsn {
             Some(p) => p.to_string(),
             None => return Err(DsnParseError::MissingProjectId),
         };
-        println!("{:?}", project_id);
         if project_id == "/" || project_id == "" {
             return Err(DsnParseError::MissingProjectId);
         }
