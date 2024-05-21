@@ -6,7 +6,7 @@ use std::{fs, io};
 /// A set of inbound and outbound keys.
 /// Requests sent to an inbound DSN are mirrored to all outbound DSNs
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
-pub struct Key {
+pub struct KeyRing {
     pub inbound: Option<String>,
     pub outbound: Vec<Option<String>>,
 }
@@ -14,7 +14,7 @@ pub struct Key {
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfigData {
     pub port: Option<String>,
-    pub keys: Vec<Key>,
+    pub keys: Vec<KeyRing>,
 }
 
 #[derive(Debug, Clone)]

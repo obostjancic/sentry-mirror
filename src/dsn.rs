@@ -5,7 +5,7 @@ use hyper::{HeaderMap, Uri};
 use regex::Regex;
 use url::Url;
 
-use crate::config::Key;
+use crate::config;
 
 /// DSN components parsed from a DSN string
 #[derive(Debug, Clone, PartialEq)]
@@ -70,17 +70,20 @@ impl Dsn {
 
     /// Get a string of the key's identity.
     pub fn key_id(&self) -> String {
-        let pubkey = &self.public_key;
-        let projectid = &self.project_id;
-
-        return format!("{pubkey}:{projectid}");
+        return self.public_key.to_string()
     }
+}
+
+#[derive(Debug, PartialEq)]
+pub struct DsnKeyRing {
+    pub inbound: Dsn,
+    pub outbound: Vec<Dsn>,
 }
 
 /// Convert a list of Config data keys into Dsn's that we can use
 /// when handling requests.
-pub fn make_key_map(keys: Vec<Key>) -> HashMap<String, Vec<Dsn>> {
-    let mut keymap: HashMap<String, Vec<Dsn>> = HashMap::new();
+pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
+    let mut keymap: HashMap<String, DsnKeyRing> = HashMap::new();
     for item in keys {
         let inbound_dsn = match Dsn::from_string(item.inbound.expect("Missing inbound key")) {
             Ok(r) => r,
@@ -94,7 +97,10 @@ pub fn make_key_map(keys: Vec<Key>) -> HashMap<String, Vec<Dsn>> {
             .map(|outbound_str| {
                 return Dsn::from_string(outbound_str.to_owned()).expect("Invalid outbound DSN")
             }).collect::<Vec<Dsn>>();
-        keymap.insert(inbound_dsn.key_id(), outbound);
+        keymap.insert(inbound_dsn.key_id(), DsnKeyRing {
+            inbound: inbound_dsn,
+            outbound,
+        });
     }
     keymap
 }
@@ -139,7 +145,7 @@ pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::Key;
+    use crate::config::KeyRing;
 
     #[test]
     fn parse_from_string_valid() {
@@ -176,7 +182,7 @@ mod tests {
     #[test]
     fn make_key_map_valid() {
         let keys = vec![
-            Key {
+            KeyRing {
                 inbound: Some("https://abcdef@sentry.io/1234".to_string()),
                 outbound: vec![
                     Some("https://ghijkl@sentry.io/567".to_string()),
@@ -186,8 +192,11 @@ mod tests {
         ];
         let keymap = make_key_map(keys);
         assert_eq!(keymap.len(), 1);
-        let value = keymap.get("abcdef:1234").expect("Should have a value");
-        assert_eq!(value.len(), 2);
+        let value = keymap.get("abcdef").expect("Should have a value");
+        assert_eq!(value.inbound.public_key, "abcdef");
+        assert_eq!(value.outbound.len(), 2);
+        assert_eq!(value.outbound[0].public_key, "ghijkl");
+        assert_eq!(value.outbound[1].public_key, "mnopq");
     }
 
     #[test]
