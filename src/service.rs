@@ -40,7 +40,7 @@ pub async fn handle_request(
         None => return Ok(bad_request_response())
     };
     for outbound_dsn in keyring.outbound.iter() {
-        let _outbound_request = request::make_outbound_request(headers, &keyring.inbound, &outbound_dsn);
+        let _outbound_request = request::make_outbound_request(uri, headers, &outbound_dsn);
     }
     let whole_body = req.collect().await?.to_bytes();
     println!("body!! {:?}", whole_body);
