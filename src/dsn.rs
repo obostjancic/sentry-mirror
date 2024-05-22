@@ -15,6 +15,7 @@ pub struct Dsn {
     pub project_id: String,
     pub host: String,
     pub path: String,
+    pub scheme: String,
 }
 
 #[derive(Debug)]
@@ -27,6 +28,7 @@ pub enum DsnParseError {
 }
 
 impl Dsn {
+    // Change to FromStr trait implementation
     pub fn from_string(input: String) -> Result<Self, DsnParseError> {
         let url = match Url::parse(&input) {
             Ok(u) => u,
@@ -40,6 +42,7 @@ impl Dsn {
             Some(v) => v.to_string(),
             None => "".to_string(),
         };
+        let scheme = url.scheme().to_string();
         let host = match url.host_str() {
             Some(h) => h.to_string(),
             None => return Err(DsnParseError::MissingHost),
@@ -64,6 +67,7 @@ impl Dsn {
             project_id,
             host,
             path,
+            scheme,
         })
     }
 

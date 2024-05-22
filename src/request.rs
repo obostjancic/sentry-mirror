@@ -5,9 +5,9 @@ use regex::Regex;
 
 use crate::dsn;
 
-
-/// Copy the relevant parts from `req` into a new request that can be sent
-/// to the outbound DSN
+/// Copy the relevant parts from `uri` and `headers` into a new request that can be sent
+/// to the outbound DSN. This function returns `RequestBuilder` because the body types
+/// are tedious to deal with.
 pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn) -> RequestBuilder {
     // Update project id in the path
     let mut new_path = uri.path().to_string();
@@ -28,10 +28,8 @@ pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn
     } else {
         new_path.parse().unwrap()
     };
-
     let new_uri = Uri::builder()
-        // TODO this should be based on the outbound DSN
-        .scheme("https")
+        .scheme(outbound.scheme.as_str())
         .authority(outbound.host.clone())
         .path_and_query(path_query)
         .build();
