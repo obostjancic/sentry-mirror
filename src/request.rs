@@ -68,7 +68,7 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_sentry_auth_header() {
-        let outbound = dsn::Dsn::from_string("https://outbound@o123.ingest.sentry.io/6789".to_string()).unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o123.ingest.sentry.io/6789".parse().unwrap();
         let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
 
         let mut headers = HeaderMap::new();
@@ -87,7 +87,7 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_authorization_header() {
-        let outbound = dsn::Dsn::from_string("https://outbound@o789.ingest.sentry.io/6789".to_string()).unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
         let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
 
         let mut headers = HeaderMap::new();
@@ -109,7 +109,7 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_query_key() {
-        let outbound = dsn::Dsn::from_string("https://outbound@o789.ingest.sentry.io/6789".to_string()).unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
         let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/?sentry_key=abcdef&sentry_version=7".parse().unwrap();
 
         let headers = HeaderMap::new();
@@ -124,7 +124,7 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_path_host_and_scheme() {
-        let outbound = dsn::Dsn::from_string("https://outbound@o789.ingest.sentry.io/6789".to_string()).unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
         let uri: Uri = "http://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
 
         let mut headers = HeaderMap::new();

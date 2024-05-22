@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::str;
+use std::str::FromStr;
 
 use hyper::{HeaderMap, Uri};
 use regex::Regex;
@@ -28,9 +29,17 @@ pub enum DsnParseError {
 }
 
 impl Dsn {
-    // Change to FromStr trait implementation
-    pub fn from_string(input: String) -> Result<Self, DsnParseError> {
-        let url = match Url::parse(&input) {
+    /// Get a string of the key's identity.
+    pub fn key_id(&self) -> String {
+        return self.public_key.to_string()
+    }
+}
+
+impl FromStr for Dsn {
+    type Err = DsnParseError;
+
+    fn from_str(input: &str) -> Result<Self, Self::Err> {
+        let url = match Url::parse(input) {
             Ok(u) => u,
             Err(_) => return Err(DsnParseError::InvalidUrl),
         };
@@ -70,11 +79,6 @@ impl Dsn {
             scheme,
         })
     }
-
-    /// Get a string of the key's identity.
-    pub fn key_id(&self) -> String {
-        return self.public_key.to_string()
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -88,7 +92,7 @@ pub struct DsnKeyRing {
 pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
     let mut keymap: HashMap<String, DsnKeyRing> = HashMap::new();
     for item in keys {
-        let inbound_dsn = match Dsn::from_string(item.inbound.expect("Missing inbound key")) {
+        let inbound_dsn = match item.inbound.expect("Missing inbound key").parse::<Dsn>() {
             Ok(r) => r,
             Err(e) => panic!("{:?}", e),
         };
@@ -98,7 +102,7 @@ pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
                 None => None,
             })
             .map(|outbound_str| {
-                return Dsn::from_string(outbound_str.to_owned()).expect("Invalid outbound DSN")
+                return outbound_str.parse::<Dsn>().expect("Invalid outbound DSN")
             }).collect::<Vec<Dsn>>();
         keymap.insert(inbound_dsn.key_id(), DsnKeyRing {
             inbound: inbound_dsn,
@@ -153,7 +157,7 @@ mod tests {
 
     #[test]
     fn parse_from_string_valid() {
-        let dsn = Dsn::from_string("http://390bf7f953b7492c9007d2cf69078adf@localhost:8765/1847101".to_string()).unwrap();
+        let dsn: Dsn = "http://390bf7f953b7492c9007d2cf69078adf@localhost:8765/1847101".parse().unwrap();
         assert_eq!("390bf7f953b7492c9007d2cf69078adf", dsn.public_key);
         assert_eq!("localhost", dsn.host);
         assert_eq!("1847101", dsn.project_id);
@@ -161,8 +165,7 @@ mod tests {
 
     #[test]
     fn parse_from_string_orgdomain() {
-        let dsn_str = "https://d2030950946a6197f9cdb9633c069eea@o4507063958255996.ingest.de.sentry.io/4501063980026892";
-        let dsn = Dsn::from_string(dsn_str.to_string()).unwrap();
+        let dsn: Dsn = "https://d2030950946a6197f9cdb9633c069eea@o4507063958255996.ingest.de.sentry.io/4501063980026892".parse().unwrap();
         assert_eq!("d2030950946a6197f9cdb9633c069eea", dsn.public_key);
         assert_eq!("o4507063958255996.ingest.de.sentry.io", dsn.host);
         assert_eq!("4501063980026892", dsn.project_id);
@@ -171,15 +174,13 @@ mod tests {
 
     #[test]
     fn parse_from_string_missing_project_id() {
-        let dsn_str = "https://abcdef@sentry.internal";
-        let dsn = Dsn::from_string(dsn_str.to_string());
+        let dsn = "https://abcdef@sentry.internal".parse::<Dsn>();
         assert_eq!(true, dsn.is_err());
     }
 
     #[test]
     fn parse_from_string_missing_empty_string() {
-        let dsn_str = "";
-        let dsn = Dsn::from_string(dsn_str.to_string());
+        let dsn = "".parse::<Dsn>();
         assert_eq!(true, dsn.is_err());
     }
 
