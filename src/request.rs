@@ -123,9 +123,9 @@ mod tests {
     }
 
     #[test]
-    fn make_outbound_request_replace_path_and_host() {
+    fn make_outbound_request_replace_path_host_and_scheme() {
         let outbound = dsn::Dsn::from_string("https://outbound@o789.ingest.sentry.io/6789".to_string()).unwrap();
-        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
+        let uri: Uri = "http://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
 
         let mut headers = HeaderMap::new();
         headers.insert("Host", "o555.ingest.sentry.io".parse().unwrap());
