@@ -104,8 +104,9 @@ pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
     keymap
 }
 
-const SENTRY_X_AUTH_HEADER: &str = "X-Sentry-Auth";
-const AUTHORIZATION_HEADER: &str = "Authorization";
+pub const SENTRY_X_AUTH_HEADER: &str = "X-Sentry-Auth";
+pub const AUTHORIZATION_HEADER: &str = "Authorization";
+pub const AUTH_HEADERS: [&'static str; 2] = [SENTRY_X_AUTH_HEADER, AUTHORIZATION_HEADER];
 
 /// Find and extract a DSN from an incoming request.
 pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
@@ -121,7 +122,7 @@ pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
     }
     // Check the X-Sentry-Auth header and Authorization Header
     if key_source.len() == 0 {
-        for key in [SENTRY_X_AUTH_HEADER, AUTHORIZATION_HEADER] {
+        for key in AUTH_HEADERS {
             if let Some(header) = headers.get(key) {
                 key_source = String::from_utf8(header.as_bytes().to_vec()).unwrap();
                 break;
