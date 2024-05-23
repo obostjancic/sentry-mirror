@@ -2,11 +2,14 @@ use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
+use clap::Parser;
+use log::info;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::Request;
 use hyper_util::rt::TokioIo;
+use simple_logger;
 use tokio::net::TcpListener;
 
 mod config;
@@ -14,10 +17,31 @@ mod dsn;
 mod request;
 mod service;
 
+#[derive(Parser, Debug)]
+struct Args {
+    /// Path to the configuration file
+    #[arg(short, long)]
+    config: String,
+
+    /// Whether or not to enable verbose logging
+    #[arg(short, long)]
+    verbose: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
-    // Read command line option for config/logging?
-    let config_path = Path::new("./example.yaml");
+    // Read command line options
+    let args = Args::parse();
+
+    // Config logging
+    if args.verbose {
+        simple_logger::init_with_level(log::Level::Debug).unwrap();
+    } else {
+        simple_logger::init_with_level(log::Level::Info).unwrap();
+    }
+
+    let config_path = Path::new(&args.config);
+    info!("Using configuration file {0}", args.config);
 
     // Parse the configuration file
     let configdata = match config::load_config(config_path) {
@@ -27,12 +51,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             panic!("Could not parse configuration file");
         },
     };
+
+    let port = configdata.port.expect("Missing required configuration `port`");
+    info!("Listening on :{0}", port);
+    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let listener = TcpListener::bind(addr).await?;
+
     // Create keymap that we need to match incoming requests
     let keymap = dsn::make_key_map(configdata.keys);
-
-    // Bind to a port
-    let addr = SocketAddr::from(([127, 0, 0, 1], 3000));
-    let listener = TcpListener::bind(addr).await?;
     let arcmap = Arc::new(keymap);
 
     loop {

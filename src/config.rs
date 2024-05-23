@@ -13,7 +13,7 @@ pub struct KeyRing {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfigData {
-    pub port: Option<String>,
+    pub port: Option<u16>,
     pub keys: Vec<KeyRing>,
 }
 

@@ -1,3 +1,4 @@
+use log::debug;
 use std::{collections::HashMap, sync::Arc};
 
 use http_body_util::{BodyExt, Full};
@@ -21,6 +22,7 @@ pub async fn handle_request(
 
     // All store/envelope requests are POST
     if method != Method::POST {
+        debug!("Received a non POST request");
         let res = Response::builder()
             .status(StatusCode::METHOD_NOT_ALLOWED)
             .body(full("Method not allowed"))
@@ -30,6 +32,7 @@ pub async fn handle_request(
     // Find DSN public key in request
     let found_dsn = dsn::from_request(uri, headers);
     if found_dsn.is_none() {
+        debug!("Could not find a DSN in the request headers or URI");
         return Ok(bad_request_response());
     }
     // Match the public key with registered keys
@@ -37,9 +40,13 @@ pub async fn handle_request(
     let keyring = match keymap.get(&public_key) {
         Some(v) => v,
         // If a DSN cannot be found -> empty response
-        None => return Ok(bad_request_response())
+        None => {
+            debug!("Could not find a match DSN in the configured keys");
+            return Ok(bad_request_response());
+        }
     };
     for outbound_dsn in keyring.outbound.iter() {
+        debug!("Creating outbound request for {0}", &outbound_dsn.host);
         let _outbound_request = request::make_outbound_request(uri, headers, &outbound_dsn);
     }
     let whole_body = req.collect().await?.to_bytes();
