@@ -12,3 +12,6 @@ serde = { version = "1.0.159", features = ["derive", "rc"] }
 serde_yaml = "0.9.17"
 url = "2.1.1"
 regex = "1.10.4"
+clap = { version = "4.5.4", features = ["derive"] }
+log = "0.4.21"
+simple_logger = "5.0.0"
