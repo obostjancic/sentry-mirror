@@ -25,7 +25,7 @@ pub struct ConfigError;
 
 /// Load configuration data from a path and parse it into `ConfigData`
 pub fn load_config(path: &Path) -> Result<ConfigData, ConfigError> {
-    let f = match fs::File::open(&path) {
+    let f = match fs::File::open(path) {
         Ok(f) => f,
         Err(_) => return Err(ConfigError),
     };

@@ -37,7 +37,7 @@ pub enum DsnParseError {
 impl Dsn {
     /// Get a string of the key's identity.
     pub fn key_id(&self) -> String {
-        return self.public_key.to_string();
+        self.public_key.to_string()
     }
 }
 
@@ -49,7 +49,7 @@ impl FromStr for Dsn {
             Ok(u) => u,
             Err(_) => return Err(DsnParseError::InvalidUrl),
         };
-        if url.username().len() < 1 {
+        if url.username().is_empty() {
             return Err(DsnParseError::MissingPublicKey);
         }
         let public_key = url.username().to_string();
@@ -71,7 +71,7 @@ impl FromStr for Dsn {
             Some(p) => p.to_string(),
             None => return Err(DsnParseError::MissingProjectId),
         };
-        if project_id == "/" || project_id == "" {
+        if project_id == "/" || project_id.is_empty() {
             return Err(DsnParseError::MissingProjectId);
         }
 
@@ -108,7 +108,7 @@ pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
                 Some(i) => Some(i),
                 None => None,
             })
-            .map(|outbound_str| return outbound_str.parse::<Dsn>().expect("Invalid outbound DSN"))
+            .map(|outbound_str| outbound_str.parse::<Dsn>().expect("Invalid outbound DSN"))
             .collect::<Vec<Dsn>>();
         keymap.insert(
             inbound_dsn.key_id(),
@@ -123,22 +123,19 @@ pub fn make_key_map(keys: Vec<config::KeyRing>) -> HashMap<String, DsnKeyRing> {
 
 pub const SENTRY_X_AUTH_HEADER: &str = "X-Sentry-Auth";
 pub const AUTHORIZATION_HEADER: &str = "Authorization";
-pub const AUTH_HEADERS: [&'static str; 2] = [SENTRY_X_AUTH_HEADER, AUTHORIZATION_HEADER];
+pub const AUTH_HEADERS: [&str; 2] = [SENTRY_X_AUTH_HEADER, AUTHORIZATION_HEADER];
 
 /// Find and extract a DSN from an incoming request.
 pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
     let mut key_source = String::new();
 
     // Check the request query if it has one
-    let query = match uri.query() {
-        Some(v) => v,
-        None => "",
-    };
-    if query.len() > 0 {
+    let query = uri.query().unwrap_or("");
+    if !query.is_empty() {
         key_source = query.to_string();
     }
     // Check the X-Sentry-Auth header and Authorization Header
-    if key_source.len() == 0 {
+    if key_source.is_empty() {
         for key in AUTH_HEADERS {
             if let Some(header) = headers.get(key) {
                 key_source = String::from_utf8(header.as_bytes().to_vec()).unwrap();
@@ -147,7 +144,7 @@ pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
         }
     }
 
-    if key_source.len() > 0 {
+    if !key_source.is_empty() {
         let pattern = Regex::new(r"sentry_key=([a-f0-9]{32})").unwrap();
         let capture = match pattern.captures(&key_source) {
             Some(v) => v,
@@ -156,7 +153,7 @@ pub fn from_request(uri: &Uri, headers: &HeaderMap) -> Option<String> {
 
         return Some(capture[1].to_string());
     }
-    return None;
+    None
 }
 
 #[cfg(test)]
@@ -186,13 +183,13 @@ mod tests {
     #[test]
     fn parse_from_string_missing_project_id() {
         let dsn = "https://abcdef@sentry.internal".parse::<Dsn>();
-        assert_eq!(true, dsn.is_err());
+        assert!(dsn.is_err());
     }
 
     #[test]
     fn parse_from_string_missing_empty_string() {
         let dsn = "".parse::<Dsn>();
-        assert_eq!(true, dsn.is_err());
+        assert!(dsn.is_err());
     }
 
     #[test]
@@ -223,7 +220,7 @@ mod tests {
         let headers = HeaderMap::new();
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_some(), true);
+        assert!(res.is_some());
         assert_eq!(res.unwrap(), needle);
     }
 
@@ -238,7 +235,7 @@ mod tests {
         let headers = HeaderMap::new();
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_none(), true);
+        assert!(res.is_none());
     }
 
     #[test]
@@ -252,7 +249,7 @@ mod tests {
         headers.insert("X-Sentry-Auth", header_val.parse().unwrap());
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_some(), true);
+        assert!(res.is_some());
         assert_eq!(res.unwrap(), needle);
     }
 
@@ -266,7 +263,7 @@ mod tests {
         headers.insert("X-Sentry-Auth", header_val.parse().unwrap());
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_some(), false);
+        assert!(res.is_none());
     }
 
     #[test]
@@ -280,7 +277,7 @@ mod tests {
         headers.insert("Authorization", header_val.parse().unwrap());
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_some(), true);
+        assert!(res.is_some());
         assert_eq!(res.unwrap(), needle);
     }
 
@@ -294,6 +291,6 @@ mod tests {
         headers.insert("Authorization", header_val.parse().unwrap());
 
         let res = from_request(&uri, &headers);
-        assert_eq!(res.is_some(), false);
+        assert!(res.is_none());
     }
 }

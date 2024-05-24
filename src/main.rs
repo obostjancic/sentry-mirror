@@ -9,7 +9,6 @@ use hyper::service::service_fn;
 use hyper::Request;
 use hyper_util::rt::TokioIo;
 use log::info;
-use simple_logger;
 use tokio::net::TcpListener;
 
 mod config;

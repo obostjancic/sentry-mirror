@@ -1,6 +1,6 @@
 use hyper_util::client::legacy::Client;
 use hyper_util::rt::TokioExecutor;
-use log::{debug, info, warn};
+use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc};
 
 use http_body_util::{BodyExt, Full};
@@ -53,7 +53,7 @@ pub async fn handle_request(
     let body_bytes = req.collect().await?.to_bytes();
     for outbound_dsn in keyring.outbound.iter() {
         debug!("Creating outbound request for {0}", &outbound_dsn.host);
-        let request_builder = request::make_outbound_request(&uri, &headers, &outbound_dsn);
+        let request_builder = request::make_outbound_request(&uri, &headers, outbound_dsn);
         let request = request_builder.body(Full::new(body_bytes.clone()));
         if let Ok(outbound_request) = request {
             send_request(outbound_request).await.map_or_else(
@@ -70,10 +70,10 @@ pub async fn handle_request(
 }
 
 fn bad_request_response() -> Response<BoxBody> {
-    return Response::builder()
+    Response::builder()
         .status(StatusCode::BAD_REQUEST)
         .body(full("No DSN found"))
-        .unwrap();
+        .unwrap()
 }
 
 fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {

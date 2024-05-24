@@ -15,11 +15,11 @@ pub fn make_outbound_request(
 ) -> RequestBuilder {
     // Update project id in the path
     let mut new_path = uri.path().to_string();
-    let path_parts: Vec<_> = uri.path().split("/").filter(|i| i.len() > 0).collect();
+    let path_parts: Vec<_> = uri.path().split('/').filter(|i| !i.is_empty()).collect();
     if path_parts.len() == 3 && path_parts[0] == "api" {
         let original_projectid = path_parts[1];
         let new_project_id = outbound.project_id.clone();
-        new_path = new_path.replace(&original_projectid, &new_project_id);
+        new_path = new_path.replace(original_projectid, &new_project_id);
     }
     // Replace public keys in the query string
     let query = match uri.query() {
@@ -43,7 +43,7 @@ pub fn make_outbound_request(
     let outbound_headers = builder.headers_mut().unwrap();
     for (key, value) in headers.iter() {
         if key == dsn::AUTHORIZATION_HEADER || key == dsn::SENTRY_X_AUTH_HEADER {
-            let updated_value = replace_public_key(value.to_str().unwrap(), &outbound);
+            let updated_value = replace_public_key(value.to_str().unwrap(), outbound);
             outbound_headers.insert(key, updated_value.parse().unwrap());
         } else if key == "host" {
             outbound_headers.insert(key, outbound.host.parse().unwrap());
@@ -84,11 +84,11 @@ mod tests {
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");
 
-        assert_eq!(res.is_ok(), true);
+        assert!(res.is_ok());
         let req = res.unwrap();
         let header_val = req.headers().get("X-Sentry-Auth").unwrap();
         assert_eq!(header_val, "sentry_key=outbound");
-        assert_eq!(req.headers().contains_key("Origin"), true);
+        assert!(req.headers().contains_key("Origin"));
         assert_eq!(req.method(), "POST");
     }
 
@@ -111,7 +111,7 @@ mod tests {
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");
 
-        assert_eq!(res.is_ok(), true);
+        assert!(res.is_ok());
         let req = res.unwrap();
 
         let mut header_val = req.headers().get("Authorization").unwrap();
@@ -135,7 +135,7 @@ mod tests {
         let headers = HeaderMap::new();
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");
-        assert_eq!(res.is_ok(), true);
+        assert!(res.is_ok());
         let req = res.unwrap();
 
         let uri = req.uri();
@@ -164,7 +164,7 @@ mod tests {
 
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");
-        assert_eq!(res.is_ok(), true);
+        assert!(res.is_ok());
         let req = res.unwrap();
 
         let header_val = req.headers().get("Host").unwrap();
