@@ -8,6 +8,9 @@ use serde_json::Value;
 
 use crate::dsn;
 
+/// Several headers should not be forwarded as they can cause data truncation, or incorrect behavior.
+const NO_COPY_HEADERS: [&str; 4] = ["host", "x-forwarded-for", "content-length", "content-encoding"];
+
 /// Copy the relevant parts from `uri` and `headers` into a new request that can be sent
 /// to the outbound DSN. This function returns `RequestBuilder` because the body types
 /// are tedious to deal with.
@@ -45,11 +48,12 @@ pub fn make_outbound_request(
 
     let outbound_headers = builder.headers_mut().unwrap();
     for (key, value) in headers.iter() {
+        if NO_COPY_HEADERS.contains(&key.as_str()) {
+            continue;
+        }
         if key == dsn::AUTHORIZATION_HEADER || key == dsn::SENTRY_X_AUTH_HEADER {
             let updated_value = replace_public_key(value.to_str().unwrap(), outbound);
             outbound_headers.insert(key, updated_value.parse().unwrap());
-        } else if key == "host" {
-            outbound_headers.insert(key, outbound.host.parse().unwrap());
         } else {
             outbound_headers.insert(key, value.clone());
         }
@@ -99,6 +103,35 @@ fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn make_outbound_request_remove_proxy_headers() {
+        let outbound: dsn::Dsn = "https://outbound@o123.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/"
+            .parse()
+            .unwrap();
+
+        let mut headers = HeaderMap::new();
+        headers.insert("Origin", "example.com".parse().unwrap());
+        headers.insert("Content-Length", "42".parse().unwrap());
+        headers.insert("Host", "sentry.example.com".parse().unwrap());
+        headers.insert("X-Forwarded-For", "127.0.0.1".parse().unwrap());
+        headers.insert("Content-Encoding", "gzip".parse().unwrap());
+
+        let builder = make_outbound_request(&uri, &headers, &outbound);
+        let res = builder.body("");
+
+        assert!(res.is_ok());
+        let req = res.unwrap();
+        let headers = req.headers();
+        assert!(!headers.contains_key("Content-Encoding"));
+        assert!(!headers.contains_key("Content-Length"));
+        assert!(!headers.contains_key("Host"));
+        assert!(!headers.contains_key("X-Forwared-For"));
+        assert!(headers.contains_key("Origin"));
+    }
 
     #[test]
     fn make_outbound_request_replace_sentry_auth_header() {
@@ -199,8 +232,6 @@ mod tests {
         assert!(res.is_ok());
         let req = res.unwrap();
 
-        let header_val = req.headers().get("Host").unwrap();
-        assert_eq!(header_val, "o789.ingest.sentry.io");
         let uri = req.uri();
         assert_eq!(uri, "https://o789.ingest.sentry.io/api/6789/envelope/");
     }
