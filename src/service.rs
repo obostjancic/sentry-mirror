@@ -9,7 +9,6 @@ use hyper::{Method, StatusCode};
 use hyper::{Request, Response};
 use hyper_tls::HttpsConnector;
 
-
 use crate::dsn;
 use crate::request;
 
@@ -18,7 +17,8 @@ type Result<T> = std::result::Result<T, GenericError>;
 type BoxBody = http_body_util::combinators::BoxBody<Bytes, hyper::Error>;
 
 pub async fn handle_request(
-    req: Request<Incoming>, keymap: Arc<HashMap<String, dsn::DsnKeyRing>>
+    req: Request<Incoming>,
+    keymap: Arc<HashMap<String, dsn::DsnKeyRing>>,
 ) -> Result<Response<BoxBody>> {
     let method = req.method();
     let uri = req.uri().clone();
@@ -68,7 +68,6 @@ pub async fn handle_request(
     // TODO need an event id to match return of relay
     Ok(Response::new(full("ok")))
 }
-
 
 fn bad_request_response() -> Response<BoxBody> {
     return Response::builder()

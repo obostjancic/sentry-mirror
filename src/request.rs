@@ -8,7 +8,11 @@ use crate::dsn;
 /// Copy the relevant parts from `uri` and `headers` into a new request that can be sent
 /// to the outbound DSN. This function returns `RequestBuilder` because the body types
 /// are tedious to deal with.
-pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn) -> RequestBuilder {
+pub fn make_outbound_request(
+    uri: &Uri,
+    headers: &HeaderMap,
+    outbound: &dsn::Dsn,
+) -> RequestBuilder {
     // Update project id in the path
     let mut new_path = uri.path().to_string();
     let path_parts: Vec<_> = uri.path().split("/").filter(|i| i.len() > 0).collect();
@@ -20,7 +24,7 @@ pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn
     // Replace public keys in the query string
     let query = match uri.query() {
         Some(value) => replace_public_key(value, outbound),
-        None => String::new()
+        None => String::new(),
     };
 
     let path_query: PathAndQuery = if !query.is_empty() {
@@ -34,9 +38,7 @@ pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn
         .path_and_query(path_query)
         .build();
 
-    let mut builder = Request::builder()
-        .method("POST")
-        .uri(new_uri.unwrap());
+    let mut builder = Request::builder().method("POST").uri(new_uri.unwrap());
 
     let outbound_headers = builder.headers_mut().unwrap();
     for (key, value) in headers.iter() {
@@ -62,15 +64,18 @@ fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
     res.into_owned()
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn make_outbound_request_replace_sentry_auth_header() {
-        let outbound: dsn::Dsn = "https://outbound@o123.ingest.sentry.io/6789".parse().unwrap();
-        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o123.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/"
+            .parse()
+            .unwrap();
 
         let mut headers = HeaderMap::new();
         headers.insert("Origin", "example.com".parse().unwrap());
@@ -89,12 +94,19 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_authorization_header() {
-        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
-        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/"
+            .parse()
+            .unwrap();
 
         let mut headers = HeaderMap::new();
         headers.insert("Content-Type", "application/json".parse().unwrap());
-        headers.insert("Authorization", "sentry_version=7,sentry_key=abcdef".parse().unwrap());
+        headers.insert(
+            "Authorization",
+            "sentry_version=7,sentry_key=abcdef".parse().unwrap(),
+        );
 
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");
@@ -112,8 +124,13 @@ mod tests {
 
     #[test]
     fn make_outbound_request_replace_query_key() {
-        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
-        let uri: Uri = "https://o123.ingest.sentry.io/api/1/envelope/?sentry_key=abcdef&sentry_version=7".parse().unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let uri: Uri =
+            "https://o123.ingest.sentry.io/api/1/envelope/?sentry_key=abcdef&sentry_version=7"
+                .parse()
+                .unwrap();
 
         let headers = HeaderMap::new();
         let builder = make_outbound_request(&uri, &headers, &outbound);
@@ -122,18 +139,28 @@ mod tests {
         let req = res.unwrap();
 
         let uri = req.uri();
-        assert_eq!(uri, "https://o789.ingest.sentry.io/api/6789/envelope/?sentry_key=outbound&sentry_version=7");
+        assert_eq!(
+            uri,
+            "https://o789.ingest.sentry.io/api/6789/envelope/?sentry_key=outbound&sentry_version=7"
+        );
     }
 
     #[test]
     fn make_outbound_request_replace_path_host_and_scheme() {
-        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789".parse().unwrap();
-        let uri: Uri = "http://o123.ingest.sentry.io/api/1/envelope/".parse().unwrap();
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let uri: Uri = "http://o123.ingest.sentry.io/api/1/envelope/"
+            .parse()
+            .unwrap();
 
         let mut headers = HeaderMap::new();
         headers.insert("Host", "o555.ingest.sentry.io".parse().unwrap());
         headers.insert("Content-Type", "application/json".parse().unwrap());
-        headers.insert("Authorization", "sentry_version=7,sentry_key=abcdef".parse().unwrap());
+        headers.insert(
+            "Authorization",
+            "sentry_version=7,sentry_key=abcdef".parse().unwrap(),
+        );
 
         let builder = make_outbound_request(&uri, &headers, &outbound);
         let res = builder.body("");

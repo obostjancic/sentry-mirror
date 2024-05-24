@@ -3,12 +3,12 @@ use std::path::Path;
 use std::sync::Arc;
 
 use clap::Parser;
-use log::info;
 use hyper::body::Incoming;
 use hyper::server::conn::http1;
 use hyper::service::service_fn;
 use hyper::Request;
 use hyper_util::rt::TokioIo;
+use log::info;
 use simple_logger;
 use tokio::net::TcpListener;
 
@@ -49,10 +49,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         Err(_) => {
             println!("Invalid configuration file");
             panic!("Could not parse configuration file");
-        },
+        }
     };
 
-    let port = configdata.port.expect("Missing required configuration `port`");
+    let port = configdata
+        .port
+        .expect("Missing required configuration `port`");
     info!("Listening on :{0}", port);
     let addr = SocketAddr::from(([127, 0, 0, 1], port));
     let listener = TcpListener::bind(addr).await?;
@@ -68,9 +70,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
         tokio::task::spawn(async move {
             if let Err(err) = http1::Builder::new()
-                .serve_connection(io, service_fn(move |req: Request<Incoming>| {
-                    service::handle_request(req, arcmap_loop.clone())
-                }))
+                .serve_connection(
+                    io,
+                    service_fn(move |req: Request<Incoming>| {
+                        service::handle_request(req, arcmap_loop.clone())
+                    }),
+                )
                 .await
             {
                 eprintln!("Error serving connection: {:?}", err);
@@ -78,5 +83,3 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         });
     }
 }
-
-

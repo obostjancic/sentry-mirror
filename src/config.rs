@@ -1,7 +1,6 @@
-use std::path::Path;
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 use std::{fs, io};
-
 
 /// A set of inbound and outbound keys.
 /// Requests sent to an inbound DSN are mirrored to all outbound DSNs
@@ -23,7 +22,6 @@ pub struct ConfigData {
 
 #[derive(Debug, Clone)]
 pub struct ConfigError;
-
 
 /// Load configuration data from a path and parse it into `ConfigData`
 pub fn load_config(path: &Path) -> Result<ConfigData, ConfigError> {
