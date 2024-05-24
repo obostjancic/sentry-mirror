@@ -35,6 +35,7 @@ pub fn make_outbound_request(uri: &Uri, headers: &HeaderMap, outbound: &dsn::Dsn
         .build();
 
     let mut builder = Request::builder()
+        .method("POST")
         .uri(new_uri.unwrap());
 
     let outbound_headers = builder.headers_mut().unwrap();
@@ -83,6 +84,7 @@ mod tests {
         let header_val = req.headers().get("X-Sentry-Auth").unwrap();
         assert_eq!(header_val, "sentry_key=outbound");
         assert_eq!(req.headers().contains_key("Origin"), true);
+        assert_eq!(req.method(), "POST");
     }
 
     #[test]
@@ -105,6 +107,7 @@ mod tests {
 
         header_val = req.headers().get("Content-Type").unwrap();
         assert_eq!(header_val, "application/json");
+        assert_eq!(req.method(), "POST");
     }
 
     #[test]

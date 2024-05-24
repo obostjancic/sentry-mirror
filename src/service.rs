@@ -1,10 +1,14 @@
-use log::debug;
+use hyper_util::client::legacy::Client;
+use hyper_util::rt::TokioExecutor;
+use log::{debug, info, warn};
 use std::{collections::HashMap, sync::Arc};
 
 use http_body_util::{BodyExt, Full};
 use hyper::body::{Bytes, Incoming};
 use hyper::{Method, StatusCode};
 use hyper::{Request, Response};
+use hyper_tls::HttpsConnector;
+
 
 use crate::dsn;
 use crate::request;
@@ -17,8 +21,8 @@ pub async fn handle_request(
     req: Request<Incoming>, keymap: Arc<HashMap<String, dsn::DsnKeyRing>>
 ) -> Result<Response<BoxBody>> {
     let method = req.method();
-    let uri = req.uri();
-    let headers = req.headers();
+    let uri = req.uri().clone();
+    let headers = req.headers().clone();
 
     // All store/envelope requests are POST
     if method != Method::POST {
@@ -30,7 +34,7 @@ pub async fn handle_request(
         return Ok(res);
     }
     // Find DSN public key in request
-    let found_dsn = dsn::from_request(uri, headers);
+    let found_dsn = dsn::from_request(&uri, &headers);
     if found_dsn.is_none() {
         debug!("Could not find a DSN in the request headers or URI");
         return Ok(bad_request_response());
@@ -45,15 +49,24 @@ pub async fn handle_request(
             return Ok(bad_request_response());
         }
     };
+
+    let body_bytes = req.collect().await?.to_bytes();
     for outbound_dsn in keyring.outbound.iter() {
         debug!("Creating outbound request for {0}", &outbound_dsn.host);
-        let _outbound_request = request::make_outbound_request(uri, headers, &outbound_dsn);
+        let request_builder = request::make_outbound_request(&uri, &headers, &outbound_dsn);
+        let request = request_builder.body(Full::new(body_bytes.clone()));
+        if let Ok(outbound_request) = request {
+            send_request(outbound_request).await.map_or_else(
+                |e| warn!("Request failed: {0}", e),
+                |res| debug!("request complete: {0}", res),
+            );
+        } else {
+            warn!("Could not build request {0:?}", request.err());
+        }
     }
-    let whole_body = req.collect().await?.to_bytes();
-    println!("body!! {:?}", whole_body);
 
-    let res_body = full("hello");
-    Ok(Response::new(res_body))
+    // TODO need an event id to match return of relay
+    Ok(Response::new(full("ok")))
 }
 
 
@@ -70,26 +83,19 @@ fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {
         .boxed()
 }
 
-/*
 /// Send a request to its destination async
-async fn send_request(req: Request<()>) -> Result<Response<BoxBody>> {
-    let host = req.uri().host().expect("request uri has no host");
-    let port = req.uri().port_u16().unwrap_or(80);
+async fn send_request(req: Request<Full<Bytes>>) -> Result<String> {
+    let https = HttpsConnector::new();
+    let client = Client::builder(TokioExecutor::new()).build::<_, Full<Bytes>>(https);
+    let resp = client.request(req).await?;
+    if !resp.status().is_success() {
+        warn!("Request did not succeed");
 
-    /*
-    let stream = TcpStream::connect((host, port)).await?;
-    let io = TokioIo::new(stream);
-    let (mut sender, conn) = hyper::client::conn::http1::handshake(io)
-        .await?;
+        let headers = resp.headers().clone();
+        let body = resp.collect().await?.to_bytes();
+        warn!("Response Headers: {0:?}", headers);
+        warn!("Response body: {:?}", body);
+    }
 
-    tokio::task::spawn(async move {
-        if let Err(err) = conn.await {
-            println!("Connection failed: {:?}", err);
-        }
-    });
-
-    let resp = sender.send_request(req).await?;
-    */
-    Ok(Response::builder().body(full("works?")).unwrap())
+    Ok("ok".to_string())
 }
-*/
