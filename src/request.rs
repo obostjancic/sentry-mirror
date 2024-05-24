@@ -9,7 +9,12 @@ use serde_json::Value;
 use crate::dsn;
 
 /// Several headers should not be forwarded as they can cause data truncation, or incorrect behavior.
-const NO_COPY_HEADERS: [&str; 4] = ["host", "x-forwarded-for", "content-length", "content-encoding"];
+const NO_COPY_HEADERS: [&str; 4] = [
+    "host",
+    "x-forwarded-for",
+    "content-length",
+    "content-encoding",
+];
 
 /// Copy the relevant parts from `uri` and `headers` into a new request that can be sent
 /// to the outbound DSN. This function returns `RequestBuilder` because the body types
@@ -70,7 +75,7 @@ pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> 
         Err(e) => {
             warn!("Could not convert body to String {0}", e);
 
-            return None
+            return None;
         }
     };
     let message_header = match body_str.trim().lines().next() {
@@ -252,10 +257,7 @@ mod tests {
         let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
             .parse()
             .unwrap();
-        let lines = vec![
-            r#"{"key":"value"}"#,
-            r#"{"second":"line"}"#,
-        ];
+        let lines = vec![r#"{"key":"value"}"#, r#"{"second":"line"}"#];
         let body = string_list_to_bytes(lines);
         let result = replace_envelope_dsn(&body, &outbound);
 
@@ -267,10 +269,7 @@ mod tests {
         let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
             .parse()
             .unwrap();
-        let lines = vec![
-            r#"{"dsn":"value"}"#,
-            r#"{"second":"line", "dsn":"value"}"#,
-        ];
+        let lines = vec![r#"{"dsn":"value"}"#, r#"{"second":"line", "dsn":"value"}"#];
         let body = string_list_to_bytes(lines);
         let result = replace_envelope_dsn(&body, &outbound);
 
