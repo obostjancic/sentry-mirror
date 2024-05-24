@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt;
 use std::str;
 use std::str::FromStr;
 
@@ -39,16 +40,16 @@ impl Dsn {
     pub fn key_id(&self) -> String {
         self.public_key.to_string()
     }
+}
 
+impl fmt::Display for Dsn {
     /// Get the string representation of a DSN
-    pub fn to_string(&self) -> String {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let scheme = &self.scheme;
         let public_key = &self.public_key;
         let host = &self.host;
         let project_id = &self.project_id;
-
-        // TODO secret key support?
-        format!("{scheme}://{public_key}@{host}/{project_id}")
+        write!(f, "{scheme}://{public_key}@{host}/{project_id}")
     }
 }
 
