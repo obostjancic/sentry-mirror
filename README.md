@@ -24,7 +24,15 @@ keys:
       - https://public-key-blue@o456.ingest.us.sentry.io/654321
 ```
 
+## Request rewriting
+
+When events are mirrored to outbound DSNs the following modifications may be made the received requests:
+
+1. DSN values in `Authorization` and `X-Sentry-Auth` headers will be replaced.
+2. DSN values in envelope headers will be replaced.
+3. Content-Length, Content-Encoding, Host, X-Forwarded-For headers will be removed.
+
 ## Deployment
 
-sentry-mirror is packaged as a Docker container that can be deployed and operated in customer environments. sentry-mirror needs to have SSL terminated externally and should be put behind a load-balancer or reverse proxy.
+[sentry mirror](sentry-mirror) is packaged as a Docker container that can be deployed and operated in customer environments. sentry-mirror needs to have SSL terminated externally and should be put behind a load-balancer or reverse proxy.
 
