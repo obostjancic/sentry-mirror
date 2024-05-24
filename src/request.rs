@@ -1,7 +1,10 @@
+use hyper::body::Bytes;
 use hyper::http::request::Builder as RequestBuilder;
 use hyper::http::uri::PathAndQuery;
 use hyper::{HeaderMap, Request, Uri};
+use log::warn;
 use regex::Regex;
+use serde_json::Value;
 
 use crate::dsn;
 
@@ -53,6 +56,35 @@ pub fn make_outbound_request(
     }
 
     builder
+}
+
+/// Replace the DSN key if it is found in the first line of the body
+/// as per the envelope specs https://develop.sentry.dev/sdk/envelopes/
+pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> {
+    let body_str = match String::from_utf8(body.to_vec()) {
+        Ok(b) => b,
+        Err(e) => {
+            warn!("Could not convert body to String {0}", e);
+
+            return None
+        }
+    };
+    let message_header = match body_str.trim().lines().next() {
+        Some(line) => line,
+        None => return None,
+    };
+    let json_header: Value = match serde_json::from_str(message_header) {
+        Ok(data) => data,
+        Err(_) => return None,
+    };
+    // Replace the DSN key if it exists.
+    if let Some(current_dsn) = json_header["dsn"].as_str() {
+        let new_body = body_str.replacen(current_dsn, &outbound.to_string(), 1);
+
+        return Some(Bytes::from(new_body));
+    }
+
+    None
 }
 
 fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
@@ -171,5 +203,84 @@ mod tests {
         assert_eq!(header_val, "o789.ingest.sentry.io");
         let uri = req.uri();
         assert_eq!(uri, "https://o789.ingest.sentry.io/api/6789/envelope/");
+    }
+
+    #[test]
+    fn test_replace_envelope_dsn_empty_body() {
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let body = Bytes::from("");
+        let result = replace_envelope_dsn(&body, &outbound);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_replace_envelope_dsn_missing_key() {
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let lines = vec![
+            r#"{"key":"value"}"#,
+            r#"{"second":"line"}"#,
+        ];
+        let body = string_list_to_bytes(lines);
+        let result = replace_envelope_dsn(&body, &outbound);
+
+        assert!(result.is_none());
+    }
+
+    #[test]
+    fn test_replace_envelope_dsn_only_first_line() {
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let lines = vec![
+            r#"{"dsn":"value"}"#,
+            r#"{"second":"line", "dsn":"value"}"#,
+        ];
+        let body = string_list_to_bytes(lines);
+        let result = replace_envelope_dsn(&body, &outbound);
+
+        assert!(result.is_some());
+        let new_body = result.unwrap();
+        let expected_lines = vec![
+            r#"{"dsn":"https://outbound@o789.ingest.sentry.io/6789"}"#,
+            r#"{"second":"line", "dsn":"value"}"#,
+        ];
+        let expected = string_list_to_bytes(expected_lines);
+        assert_eq!(new_body, expected);
+    }
+
+    #[test]
+    fn test_replace_envelope_dsn_present() {
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let lines = vec![
+            r#"{"event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d","dsn":"https://deadbeef@ingest.sentry.io/123"}"#,
+            r#"{"message":"something failed"}"#,
+        ];
+        let body = string_list_to_bytes(lines);
+        let result = replace_envelope_dsn(&body, &outbound);
+
+        assert!(result.is_some());
+
+        let new_body = result.unwrap();
+        assert!(!new_body.is_empty());
+
+        let expected_lines = vec![
+            r#"{"event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d","dsn":"https://outbound@o789.ingest.sentry.io/6789"}"#,
+            r#"{"message":"something failed"}"#,
+        ];
+        let expected = string_list_to_bytes(expected_lines);
+        assert_eq!(new_body, expected);
+    }
+
+    fn string_list_to_bytes(lines: Vec<&str>) -> Bytes {
+        let joined = lines.join("\n");
+
+        Bytes::from(joined)
     }
 }
