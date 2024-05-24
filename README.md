@@ -36,12 +36,16 @@ When events are mirrored to outbound DSNs the following modifications may be mad
 
 [sentry mirror](sentry-mirror) is packaged as a Docker container that can be deployed and operated in customer environments. sentry-mirror needs to have SSL terminated externally and should be put behind a load-balancer or reverse proxy.
 
-### Deployment
+### Build
 
 ```shell
 # Build the image
 docker build -f Dockerfile -t sentry-mirror .
+```
 
+### Run
+
+```
 # Mount your configuration file into the container and run the application
 docker run --name sentry-mirror -v ./config.yml:/opt/config.yml sentry-mirror /opt/sentry-mirror -c /opt/config.yml
 ```
