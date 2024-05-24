@@ -11,11 +11,17 @@ use crate::config;
 /// DSN components parsed from a DSN string
 #[derive(Debug, Clone, PartialEq)]
 pub struct Dsn {
+    /// The public key for a DSN. Public keys should be unique.
     pub public_key: String,
+    /// Mostly unused, can show up in older DSNs
     pub secret_key: String,
+    /// The sentry project ths DSN belongs to.
     pub project_id: String,
+    /// The DSN host, can either be an upstream or the local server instance.
     pub host: String,
+    /// The path components for the DSN. Generally just the project id.
     pub path: String,
+    /// https/http
     pub scheme: String,
 }
 
