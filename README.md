@@ -7,9 +7,9 @@ during a region relocation, or self-hosted to saas relocation. This application
 will accept inbound ingest traffic on a configured DSN and forward events to one
 or more outbound DSNs.
 
-Events will be mirrored in a *best-effort* fashion. Delivery to outbound DSNs will
-not be buffered, and events in the destination organizations may be sampled differently
-by the receiving organizations.
+Events will be mirrored in a *best-effort* fashion. Delivery to outbound DSNs
+will not be buffered, and events in each of the destination organizations may be
+sampled differently.
 
 ## Configuration
 
@@ -28,9 +28,10 @@ keys:
 
 When events are mirrored to outbound DSNs the following modifications may be made the received requests:
 
-1. DSN values in `Authorization` and `X-Sentry-Auth` headers will be replaced.
-2. DSN values in envelope headers will be replaced.
-3. Content-Length, Content-Encoding, Host, X-Forwarded-For headers will be removed.
+1. `sentry_key` component of `Authorization` and `X-Sentry-Auth` headers will be replaced.
+2. `dsn` in envelope headers will be replaced.
+3. `trace.public_key` in envelope headers will be replaced.
+4. Content-Length, Content-Encoding, Host, X-Forwarded-For headers will be removed.
 
 ## Deployment
 
