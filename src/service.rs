@@ -82,8 +82,14 @@ pub async fn handle_request(
         }
     }
 
+    // Add cors headers necessary for browser events
+    let response_builder = Response::builder()
+        .header("Access-Control-Allow-Origin", "*")
+        .header("Access-Control-Expose-Headers", "x-sentry-error,x-sentry-rate-limit,retry-after")
+        .header("Cross-Origin-Resource-Policy", "cross-origin");
+
     // TODO need an event id to match return of relay
-    Ok(Response::new(full(r#"{"id":"abcdef"}"#)))
+    Ok(response_builder.body(full(r#"{"id":"abcdef"}"#)).unwrap())
 }
 
 fn bad_request_response() -> Response<BoxBody> {
