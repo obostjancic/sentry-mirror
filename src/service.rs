@@ -59,7 +59,7 @@ pub async fn handle_request(
             Err(e) => {
                 warn!("Could not decode request body: {0:?}", e);
                 return Ok(bad_request_response());
-            },
+            }
         }
     }
 
@@ -85,7 +85,10 @@ pub async fn handle_request(
     // Add cors headers necessary for browser events
     let response_builder = Response::builder()
         .header("Access-Control-Allow-Origin", "*")
-        .header("Access-Control-Expose-Headers", "x-sentry-error,x-sentry-rate-limit,retry-after")
+        .header(
+            "Access-Control-Expose-Headers",
+            "x-sentry-error,x-sentry-rate-limit,retry-after",
+        )
         .header("Cross-Origin-Resource-Policy", "cross-origin");
 
     // TODO need an event id to match return of relay

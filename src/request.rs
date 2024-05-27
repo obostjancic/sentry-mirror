@@ -1,4 +1,3 @@
-use std::io::prelude::*;
 use flate2::read::{DeflateDecoder, GzDecoder};
 use hyper::body::Bytes;
 use hyper::header::HeaderValue;
@@ -8,6 +7,7 @@ use hyper::{HeaderMap, Request, Uri};
 use log::warn;
 use regex::Regex;
 use serde_json::Value;
+use std::io::prelude::*;
 
 use crate::dsn;
 
@@ -70,7 +70,6 @@ pub fn make_outbound_request(
     builder
 }
 
-
 /// Replace the DSN key if it is found in the first line of the body
 /// as per the envelope specs https://develop.sentry.dev/sdk/envelopes/
 pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> {
@@ -95,12 +94,12 @@ pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> 
         Err(_) => return None,
     };
     let mut modified = false;
-    if let Some(_) = json_header.get("dsn") {
+    if json_header.get("dsn").is_some() {
         json_header["dsn"] = Value::String(outbound.to_string());
         modified = true;
     }
     if let Some(trace) = json_header.get("trace") {
-        if let Some(_) =  trace.get("public_key") {
+        if trace.get("public_key").is_some() {
             json_header["trace"]["public_key"] = Value::String(outbound.public_key.clone());
             modified = true;
         }
@@ -114,9 +113,10 @@ pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> 
         Some(c) => c.to_owned(),
         None => return None,
     };
-    let new_body = Bytes::from([header_line, Bytes::from("\n"), Bytes::from(envelope_body)].concat());
+    let new_body =
+        Bytes::from([header_line, Bytes::from("\n"), Bytes::from(envelope_body)].concat());
 
-    return Some(new_body)
+    Some(new_body)
 }
 
 fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
@@ -146,23 +146,30 @@ pub fn decode_body(encoding_header: &HeaderValue, body: &Bytes) -> Result<Bytes,
     if encoding_value == "gzip" {
         let mut decoder = GzDecoder::new(body_vec.as_slice());
 
-        decoder.read_to_end(&mut decompressed).map_err(BodyError::CouldNotDecode)?;
+        decoder
+            .read_to_end(&mut decompressed)
+            .map_err(BodyError::CouldNotDecode)?;
 
-        return Ok(Bytes::from(decompressed));
+        Ok(Bytes::from(decompressed))
     } else if encoding_value == "deflate" {
         let mut decoder = DeflateDecoder::new(body_vec.as_slice());
 
-        decoder.read_to_end(&mut decompressed).map_err(BodyError::CouldNotDecode)?;
+        decoder
+            .read_to_end(&mut decompressed)
+            .map_err(BodyError::CouldNotDecode)?;
 
-        return Ok(Bytes::from(decompressed));
+        Ok(Bytes::from(decompressed))
     } else {
-        return Err(BodyError::UnsupportedCodec);
+        Err(BodyError::UnsupportedCodec)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use flate2::{read::{DeflateEncoder, GzEncoder}, Compression};
+    use flate2::{
+        read::{DeflateEncoder, GzEncoder},
+        Compression,
+    };
 
     use super::*;
 
@@ -372,7 +379,7 @@ mod tests {
             .unwrap();
         let lines = vec![
             r#"{"dsn":"http://abcdef@localhost:3000/12345","trace":{"public_key":"abcdef"}}"#,
-            r#"{"second":"line", "dsn":"value"}"#
+            r#"{"second":"line", "dsn":"value"}"#,
         ];
         let body = string_list_to_bytes(lines);
         let result = replace_envelope_dsn(&body, &outbound);
@@ -400,7 +407,11 @@ mod tests {
         assert!(res.is_ok());
         let decoded = res.unwrap();
 
-        assert_eq!(decoded.to_vec().as_slice(), contents, "should get the same data back");
+        assert_eq!(
+            decoded.to_vec().as_slice(),
+            contents,
+            "should get the same data back"
+        );
     }
 
     #[test]
@@ -416,7 +427,11 @@ mod tests {
         assert!(res.is_ok());
         let decoded = res.unwrap();
 
-        assert_eq!(decoded.to_vec().as_slice(), contents, "should get the same data back");
+        assert_eq!(
+            decoded.to_vec().as_slice(),
+            contents,
+            "should get the same data back"
+        );
     }
 
     #[test]
