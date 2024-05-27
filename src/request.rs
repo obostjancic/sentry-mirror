@@ -74,20 +74,23 @@ pub fn make_outbound_request(
 /// Replace the DSN key if it is found in the first line of the body
 /// as per the envelope specs https://develop.sentry.dev/sdk/envelopes/
 pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> {
-    let body_str = match String::from_utf8(body.to_vec()) {
-        Ok(b) => b,
+    // Split the envelope header off if possible
+    let mut body_chunks = body.splitn(2, |&x| x == b'\n');
+    let envelope_header = match body_chunks.next() {
+        Some(b) => b.to_vec(),
+        None => return None,
+    };
+    // We don't want to copy the entire body to String as
+    // replays have blobs in them, and we only need the header.
+    let message_header = match String::from_utf8(envelope_header) {
+        Ok(h) => h,
         Err(e) => {
-            warn!("Could not convert body to String {0}", e);
+            warn!("Could not convert envelope header to String {0}", e);
 
             return None;
         }
     };
-    let mut body_lines = body_str.trim().lines();
-    let message_header = match body_lines.next() {
-        Some(line) => line,
-        None => return None,
-    };
-    let mut json_header: Value = match serde_json::from_str(message_header) {
+    let mut json_header: Value = match serde_json::from_str(&message_header) {
         Ok(data) => data,
         Err(_) => return None,
     };
@@ -105,12 +108,15 @@ pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> 
     if !modified {
         return None;
     }
-    // Rebuild the request body by replacing the envelope headers
-    let mut header_lines = body_lines.collect::<Vec<_>>();
-    let header_line = json_header.to_string();
-    header_lines.insert(0, &header_line);
 
-    return Some(Bytes::from(header_lines.join("\n")));
+    let header_line = Bytes::from(json_header.to_string());
+    let envelope_body = match body_chunks.next() {
+        Some(c) => c.to_owned(),
+        None => return None,
+    };
+    let new_body = Bytes::from([header_line, Bytes::from("\n"), Bytes::from(envelope_body)].concat());
+
+    return Some(new_body)
 }
 
 fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
