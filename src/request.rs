@@ -1,4 +1,7 @@
+use std::io::prelude::*;
+use flate2::read::{DeflateDecoder, GzDecoder};
 use hyper::body::Bytes;
+use hyper::header::HeaderValue;
 use hyper::http::request::Builder as RequestBuilder;
 use hyper::http::uri::PathAndQuery;
 use hyper::{HeaderMap, Request, Uri};
@@ -67,6 +70,7 @@ pub fn make_outbound_request(
     builder
 }
 
+
 /// Replace the DSN key if it is found in the first line of the body
 /// as per the envelope specs https://develop.sentry.dev/sdk/envelopes/
 pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> {
@@ -105,8 +109,42 @@ fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
     res.into_owned()
 }
 
+#[derive(Debug)]
+pub enum BodyError {
+    UnsupportedCodec,
+    CouldNotDecode(std::io::Error),
+    InvalidHeader,
+}
+
+/// Decode compressed body into hyper::Bytes
+pub fn decode_body(encoding_header: &HeaderValue, body: &Bytes) -> Result<Bytes, BodyError> {
+    let encoding_value = match encoding_header.to_str() {
+        Ok(value) => value,
+        Err(_) => return Err(BodyError::InvalidHeader),
+    };
+    let mut decompressed = Vec::with_capacity(8 * 1024);
+    let body_vec = body.to_vec();
+    if encoding_value == "gzip" {
+        let mut decoder = GzDecoder::new(body_vec.as_slice());
+
+        decoder.read_to_end(&mut decompressed).map_err(BodyError::CouldNotDecode)?;
+
+        return Ok(Bytes::from(decompressed));
+    } else if encoding_value == "deflate" {
+        let mut decoder = DeflateDecoder::new(body_vec.as_slice());
+
+        decoder.read_to_end(&mut decompressed).map_err(BodyError::CouldNotDecode)?;
+
+        return Ok(Bytes::from(decompressed));
+    } else {
+        return Err(BodyError::UnsupportedCodec);
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use flate2::{read::{DeflateEncoder, GzEncoder}, Compression};
+
     use super::*;
 
     #[test]
@@ -306,6 +344,47 @@ mod tests {
         ];
         let expected = string_list_to_bytes(expected_lines);
         assert_eq!(new_body, expected);
+    }
+
+    #[test]
+    fn test_decode_body_gzip() {
+        let contents = b"some content to be compressed";
+        let mut encoder = GzEncoder::new(&contents[..], Compression::fast());
+        let mut buffer_out = Vec::new();
+        encoder.read_to_end(&mut buffer_out).unwrap();
+
+        let bytes = Bytes::from(buffer_out);
+        let header_val: HeaderValue = "gzip".parse().unwrap();
+        let res = decode_body(&header_val, &bytes);
+        assert!(res.is_ok());
+        let decoded = res.unwrap();
+
+        assert_eq!(decoded.to_vec().as_slice(), contents, "should get the same data back");
+    }
+
+    #[test]
+    fn test_decode_body_deflate() {
+        let contents = b"some content to be compressed";
+        let mut encoder = DeflateEncoder::new(&contents[..], Compression::fast());
+        let mut buffer_out = Vec::new();
+        encoder.read_to_end(&mut buffer_out).unwrap();
+
+        let bytes = Bytes::from(buffer_out);
+        let header_val: HeaderValue = "deflate".parse().unwrap();
+        let res = decode_body(&header_val, &bytes);
+        assert!(res.is_ok());
+        let decoded = res.unwrap();
+
+        assert_eq!(decoded.to_vec().as_slice(), contents, "should get the same data back");
+    }
+
+    #[test]
+    fn test_decode_body_error() {
+        let contents = "some content to be compressed";
+        let bytes = Bytes::from(contents);
+        let header_val: HeaderValue = "deflate".parse().unwrap();
+        let res = decode_body(&header_val, &bytes);
+        assert!(res.is_err());
     }
 
     fn string_list_to_bytes(lines: Vec<&str>) -> Bytes {

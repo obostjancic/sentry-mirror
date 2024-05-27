@@ -49,8 +49,20 @@ pub async fn handle_request(
             return Ok(bad_request_response());
         }
     };
+    let mut body_bytes = req.collect().await?.to_bytes();
 
-    let body_bytes = req.collect().await?.to_bytes();
+    // Bodies can be compressed
+    if headers.contains_key("content-encoding") {
+        let request_encoding = headers.get("content-encoding").unwrap();
+        body_bytes = match request::decode_body(request_encoding, &body_bytes) {
+            Ok(decompressed) => decompressed,
+            Err(e) => {
+                warn!("Could not decode request body: {0:?}", e);
+                return Ok(bad_request_response());
+            },
+        }
+    }
+
     for outbound_dsn in keyring.outbound.iter() {
         debug!("Creating outbound request for {0}", &outbound_dsn.host);
         let request_builder = request::make_outbound_request(&uri, &headers, outbound_dsn);
