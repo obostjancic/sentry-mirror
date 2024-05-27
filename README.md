@@ -33,6 +33,8 @@ When events are mirrored to outbound DSNs the following modifications may be mad
 3. `trace.public_key` in envelope headers will be replaced.
 4. Content-Length, Content-Encoding, Host, X-Forwarded-For headers will be removed.
 
+sentry-mirror will send outbound requests concurrently and respond with the response body of the first 
+
 ## Deployment
 
 [sentry mirror](sentry-mirror) is packaged as a Docker container that can be deployed and operated in customer environments. sentry-mirror needs to have SSL terminated externally and should be put behind a load-balancer or reverse proxy.

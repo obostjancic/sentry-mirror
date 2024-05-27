@@ -1,4 +1,5 @@
-use hyper_util::client::legacy::Client;
+use futures::future::join_all;
+use hyper_util::client::legacy::{Client, ResponseFuture};
 use hyper_util::rt::TokioExecutor;
 use log::{debug, warn};
 use std::{collections::HashMap, sync::Arc};
@@ -63,6 +64,9 @@ pub async fn handle_request(
         }
     }
 
+    // We'll race requests to the outbound DSN's and once all requests are complete
+    // we use the body of the first response
+    let mut responses = Vec::new();
     for outbound_dsn in keyring.outbound.iter() {
         debug!("Creating outbound request for {0}", &outbound_dsn.host);
         let request_builder = request::make_outbound_request(&uri, &headers, outbound_dsn);
@@ -73,12 +77,27 @@ pub async fn handle_request(
         let request = request_builder.body(Full::new(body_out));
 
         if let Ok(outbound_request) = request {
-            send_request(outbound_request).await.map_or_else(
-                |e| warn!("Request failed: {0}", e),
-                |res| debug!("request complete: {0}", res),
-            );
+            let fut_res = send_request(outbound_request);
+            responses.push(fut_res);
         } else {
             warn!("Could not build request {0:?}", request.err());
+        }
+    }
+
+    let mut found_body = false;
+    let mut resp_body = Bytes::new();
+    // TODO Try futures::FuturesUnordered to reply before both requests are complete.
+    for fut_res in join_all(responses).await {
+        let response_res = fut_res.await;
+        if found_body {
+            continue;
+        }
+        if let Ok(response) = response_res {
+            // let body_fut = response.collect().await;
+            if let Ok(response_body) = response.collect().await {
+                resp_body = response_body.to_bytes();
+                found_body = true;
+            }
         }
     }
 
@@ -91,8 +110,7 @@ pub async fn handle_request(
         )
         .header("Cross-Origin-Resource-Policy", "cross-origin");
 
-    // TODO need an event id to match return of relay
-    Ok(response_builder.body(full(r#"{"id":"abcdef"}"#)).unwrap())
+    Ok(response_builder.body(full(resp_body)).unwrap())
 }
 
 fn bad_request_response() -> Response<BoxBody> {
@@ -109,18 +127,9 @@ fn full<T: Into<Bytes>>(chunk: T) -> BoxBody {
 }
 
 /// Send a request to its destination async
-async fn send_request(req: Request<Full<Bytes>>) -> Result<String> {
+async fn send_request(req: Request<Full<Bytes>>) -> ResponseFuture {
     let https = HttpsConnector::new();
     let client = Client::builder(TokioExecutor::new()).build::<_, Full<Bytes>>(https);
-    let resp = client.request(req).await?;
-    if !resp.status().is_success() {
-        warn!("Request did not succeed");
 
-        let headers = resp.headers().clone();
-        let body = resp.collect().await?.to_bytes();
-        warn!("Response Headers: {0:?}", headers);
-        warn!("Response body: {:?}", body);
-    }
-
-    Ok("ok".to_string())
+    client.request(req)
 }
