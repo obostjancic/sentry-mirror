@@ -66,12 +66,12 @@ pub async fn handle_request(
     for outbound_dsn in keyring.outbound.iter() {
         debug!("Creating outbound request for {0}", &outbound_dsn.host);
         let request_builder = request::make_outbound_request(&uri, &headers, outbound_dsn);
-
         let body_out = match request::replace_envelope_dsn(&body_bytes, outbound_dsn) {
             Some(new_body) => new_body,
             None => body_bytes.clone(),
         };
         let request = request_builder.body(Full::new(body_out));
+
         if let Ok(outbound_request) = request {
             send_request(outbound_request).await.map_or_else(
                 |e| warn!("Request failed: {0}", e),
@@ -83,7 +83,7 @@ pub async fn handle_request(
     }
 
     // TODO need an event id to match return of relay
-    Ok(Response::new(full("ok")))
+    Ok(Response::new(full(r#"{"id":"abcdef"}"#)))
 }
 
 fn bad_request_response() -> Response<BoxBody> {

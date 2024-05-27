@@ -82,22 +82,35 @@ pub fn replace_envelope_dsn(body: &Bytes, outbound: &dsn::Dsn) -> Option<Bytes> 
             return None;
         }
     };
-    let message_header = match body_str.trim().lines().next() {
+    let mut body_lines = body_str.trim().lines();
+    let message_header = match body_lines.next() {
         Some(line) => line,
         None => return None,
     };
-    let json_header: Value = match serde_json::from_str(message_header) {
+    let mut json_header: Value = match serde_json::from_str(message_header) {
         Ok(data) => data,
         Err(_) => return None,
     };
-    // Replace the DSN key if it exists.
-    if let Some(current_dsn) = json_header["dsn"].as_str() {
-        let new_body = body_str.replacen(current_dsn, &outbound.to_string(), 1);
-
-        return Some(Bytes::from(new_body));
+    let mut modified = false;
+    if let Some(_) = json_header.get("dsn") {
+        json_header["dsn"] = Value::String(outbound.to_string());
+        modified = true;
     }
+    if let Some(trace) = json_header.get("trace") {
+        if let Some(_) =  trace.get("public_key") {
+            json_header["trace"]["public_key"] = Value::String(outbound.public_key.clone());
+            modified = true;
+        }
+    }
+    if !modified {
+        return None;
+    }
+    // Rebuild the request body by replacing the envelope headers
+    let mut header_lines = body_lines.collect::<Vec<_>>();
+    let header_line = json_header.to_string();
+    header_lines.insert(0, &header_line);
 
-    None
+    return Some(Bytes::from(header_lines.join("\n")));
 }
 
 fn replace_public_key(target: &str, outbound: &dsn::Dsn) -> String {
@@ -327,7 +340,7 @@ mod tests {
             .parse()
             .unwrap();
         let lines = vec![
-            r#"{"event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d","dsn":"https://deadbeef@ingest.sentry.io/123"}"#,
+            r#"{"dsn":"https://deadbeef@ingest.sentry.io/123","event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d"}"#,
             r#"{"message":"something failed"}"#,
         ];
         let body = string_list_to_bytes(lines);
@@ -339,8 +352,30 @@ mod tests {
         assert!(!new_body.is_empty());
 
         let expected_lines = vec![
-            r#"{"event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d","dsn":"https://outbound@o789.ingest.sentry.io/6789"}"#,
+            r#"{"dsn":"https://outbound@o789.ingest.sentry.io/6789","event_id":"5cb13bb8-eb7f-4a50-a8d8-9d309fd1049d"}"#,
             r#"{"message":"something failed"}"#,
+        ];
+        let expected = string_list_to_bytes(expected_lines);
+        assert_eq!(new_body, expected);
+    }
+
+    #[test]
+    fn test_replace_envelope_dsn_trace_public_key() {
+        let outbound: dsn::Dsn = "https://outbound@o789.ingest.sentry.io/6789"
+            .parse()
+            .unwrap();
+        let lines = vec![
+            r#"{"dsn":"http://abcdef@localhost:3000/12345","trace":{"public_key":"abcdef"}}"#,
+            r#"{"second":"line", "dsn":"value"}"#
+        ];
+        let body = string_list_to_bytes(lines);
+        let result = replace_envelope_dsn(&body, &outbound);
+
+        assert!(result.is_some());
+        let new_body = result.unwrap();
+        let expected_lines = vec![
+            r#"{"dsn":"https://outbound@o789.ingest.sentry.io/6789","trace":{"public_key":"outbound"}}"#,
+            r#"{"second":"line", "dsn":"value"}"#,
         ];
         let expected = string_list_to_bytes(expected_lines);
         assert_eq!(new_body, expected);
