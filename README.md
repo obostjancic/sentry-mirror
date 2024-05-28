@@ -35,6 +35,20 @@ When events are mirrored to outbound DSNs the following modifications may be mad
 
 sentry-mirror will send outbound requests concurrently and respond with the response body of the first 
 
+## Compatible Data Types
+
+sentry-mirror has been tested to work with the following data categories:
+
+- Errors
+- Transactions/Tracing
+- Replays
+- Metrics
+- Profiling
+
+## Unsupported Features
+
+- The [Crash Report Modal](https://docs.sentry.io/product/user-feedback/#crash-report-modal) does not work with mirrored events. Getting the crash report modal fetches HTML from sentry's servers and that request cannot be mirrored.
+
 ## Deployment
 
 [sentry mirror](sentry-mirror) is packaged as a Docker container that can be deployed and operated in customer environments. sentry-mirror needs to have SSL terminated externally and should be put behind a load-balancer or reverse proxy.
