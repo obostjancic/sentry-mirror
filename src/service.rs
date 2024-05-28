@@ -86,14 +86,13 @@ pub async fn handle_request(
 
     let mut found_body = false;
     let mut resp_body = Bytes::new();
-    // TODO Try futures::FuturesUnordered to reply before both requests are complete.
+    // Wait for responses to finish and use the first one's body
     for fut_res in join_all(responses).await {
         let response_res = fut_res.await;
         if found_body {
             continue;
         }
         if let Ok(response) = response_res {
-            // let body_fut = response.collect().await;
             if let Ok(response_body) = response.collect().await {
                 resp_body = response_body.to_bytes();
                 found_body = true;

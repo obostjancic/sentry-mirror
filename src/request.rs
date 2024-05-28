@@ -143,6 +143,7 @@ pub fn decode_body(encoding_header: &HeaderValue, body: &Bytes) -> Result<Bytes,
     };
     let mut decompressed = Vec::with_capacity(8 * 1024);
     let body_vec = body.to_vec();
+
     if encoding_value == "gzip" {
         let mut decoder = GzDecoder::new(body_vec.as_slice());
 
