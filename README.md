@@ -44,6 +44,7 @@ sentry-mirror has been tested to work with the following data categories:
 - Replays
 - Metrics
 - Profiling
+- Minidumps
 
 ## Unsupported Features
 
