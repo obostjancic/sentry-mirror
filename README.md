@@ -33,7 +33,8 @@ When events are mirrored to outbound DSNs the following modifications may be mad
 3. `trace.public_key` in envelope headers will be replaced.
 4. Content-Length, Content-Encoding, Host, X-Forwarded-For headers will be removed.
 
-sentry-mirror will send outbound requests concurrently and respond with the response body of the first 
+sentry-mirror will send outbound requests concurrently and respond with the response 
+body of the first outbound key.
 
 ## Compatible Data Types
 
