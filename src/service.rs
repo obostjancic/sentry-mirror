@@ -1,7 +1,7 @@
 use futures::future::join_all;
 use hyper_util::client::legacy::{Client, ResponseFuture};
 use hyper_util::rt::TokioExecutor;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use std::{collections::HashMap, sync::Arc};
 
 use http_body_util::{BodyExt, Full};
@@ -23,7 +23,19 @@ pub async fn handle_request(
 ) -> Result<Response<BoxBody>> {
     let method = req.method();
     let uri = req.uri().clone();
+    let path = uri.path();
     let headers = req.headers().clone();
+    let user_agent = match headers.get("user-agent") {
+        Some(header) => {
+            if let Ok(v) = header.to_str() {
+                v
+            } else {
+                "no-agent"
+            }
+        },
+        None => "no-agent",
+    };
+    info!("{method} {path} {user_agent}");
 
     // All store/envelope requests are POST
     if method != Method::POST {
