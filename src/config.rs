@@ -14,6 +14,8 @@ pub struct KeyRing {
 
 #[derive(Debug, PartialEq, Serialize, Deserialize)]
 pub struct ConfigData {
+    /// The inbound IP to use. Defaults to 127.0.0.1
+    pub ip: Option<String>,
     /// The port the http server will listen on
     pub port: Option<u16>,
     /// A list of keypairs that the server will handle.

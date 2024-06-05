@@ -32,7 +32,7 @@ pub async fn handle_request(
             } else {
                 "no-agent"
             }
-        },
+        }
         None => "no-agent",
     };
     info!("{method} {path} {user_agent}");

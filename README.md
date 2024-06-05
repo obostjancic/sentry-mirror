@@ -16,6 +16,7 @@ sampled differently.
 sentry-mirror is primary configured through a YAML file:
 
 ```yaml
+ip: 0.0.0.0
 port: 3000
 keys:
   - inbound: http://public-key@sentry-mirror.acme.org/1847101
@@ -66,7 +67,7 @@ docker build -f Dockerfile -t sentry-mirror .
 
 ```
 # Mount your configuration file into the container and run the application
-docker run --name sentry-mirror -v ./config.yml:/opt/config.yml sentry-mirror /opt/sentry-mirror -c /opt/config.yml
+docker run --name sentry-mirror -v ./config.yml:/opt/config.yml -p 3000:3000 sentry-mirror /opt/sentry-mirror -c /opt/config.yml
 ```
 
 If you map the application to a port that isn't 3000 you'll also need to expose the port in the container.

@@ -1,4 +1,3 @@
-use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -54,8 +53,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let port = configdata
         .port
         .expect("Missing required configuration `port`");
-    info!("Listening on :{0}", port);
-    let addr = SocketAddr::from(([127, 0, 0, 1], port));
+    let ip = configdata
+        .ip
+        .or_else(|| Some("127.0.0.1".to_string()))
+        .unwrap();
+
+    let addr = format!("{ip}:{port}");
+    info!("Listening on {0}", addr);
     let listener = TcpListener::bind(addr).await?;
 
     // Create keymap that we need to match incoming requests
