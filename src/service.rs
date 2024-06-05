@@ -109,6 +109,8 @@ pub async fn handle_request(
                 resp_body = response_body.to_bytes();
                 found_body = true;
             }
+        } else {
+            warn!("Could not make request: {0:?}", response_res.err());
         }
     }
 

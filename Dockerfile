@@ -9,6 +9,9 @@ RUN cd /opt/src \
 # Runtime image
 FROM debian:bullseye
 
+RUN apt-get update && \
+  apt-get install -y ca-certificates
+
 EXPOSE 3000
 
 COPY --from=build /opt/src/target/release/sentry-mirror /opt/sentry-mirror
