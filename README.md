@@ -1,7 +1,5 @@
 # Sentry Mirror
 
-:warning: This application is not ready for customer use yet.
-
 This application helps customers create data-continuity for ingest traffic
 during a region relocation, or self-hosted to saas relocation. This application
 will accept inbound ingest traffic on a configured DSN and forward events to one
