@@ -17,9 +17,6 @@ mod service;
 
 #[derive(Parser, Debug)]
 struct Args {
-    /// Path to the configuration file
-    #[arg(short, long)]
-    config: String,
 
     /// Whether or not to enable verbose logging
     #[arg(short, long)]
@@ -38,17 +35,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         simple_logger::init_with_level(log::Level::Info).unwrap();
     }
 
-    let config_path = Path::new(&args.config);
-    info!("Using configuration file {0}", args.config);
 
-    // Parse the configuration file
-    let configdata = match config::load_config(config_path) {
+    // Parse the configuration
+    let configdata = match config::load_b64_config("CONFIG") {
         Ok(keys) => keys,
         Err(_) => {
-            println!("Invalid configuration file");
-            panic!("Could not parse configuration file");
+            println!("Invalid configuration");
+            panic!("Could not parse configuration");
         }
     };
+
+    println!("{:?}", configdata);
 
     let port = configdata
         .port
